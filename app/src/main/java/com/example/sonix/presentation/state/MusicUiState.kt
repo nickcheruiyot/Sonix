@@ -1,7 +1,6 @@
 package com.example.sonix.presentation.state
 import android.app.PendingIntent
 import com.example.sonix.data.model.Song
-
 enum class SortOrder {
     A_TO_Z,
     Z_TO_A,

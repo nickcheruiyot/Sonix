@@ -71,7 +71,6 @@ import com.example.sonix.presentation.ui.theme.White30
 import com.example.sonix.presentation.ui.theme.White60
 import com.example.sonix.presentation.viewmodel.MusicViewModel
 import com.example.sonix.util.toFormattedDuration
-
 @Composable
 fun PlayerScreen(
     viewModel: MusicViewModel,
@@ -149,12 +148,10 @@ fun PlayerScreen(
                 .navigationBarsPadding()
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            // Distribute space evenly so content spreads across
-            // the full safe area rather than bunching at the top
             verticalArrangement = Arrangement.SpaceBetween
         ) {
 
-            // ── TOP SECTION ───────────────────────────────────────────
+            //  TOP SECTION
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
                 Spacer(Modifier.height(8.dp))
@@ -195,7 +192,7 @@ fun PlayerScreen(
                 }
             }
 
-            // ── MIDDLE SECTION — headphone + song info ────────────────
+            //  MIDDLE SECTION — headphone + song info
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()

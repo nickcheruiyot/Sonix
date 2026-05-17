@@ -36,7 +36,6 @@ import com.example.sonix.presentation.ui.theme.Black40
 import com.example.sonix.presentation.ui.theme.Lime
 import com.example.sonix.presentation.ui.theme.White60
 import com.example.sonix.presentation.ui.theme.White100
-
 @Composable
 fun ArtistItem(
     artist: Artist,

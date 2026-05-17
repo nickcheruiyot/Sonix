@@ -1,5 +1,4 @@
 package com.example.sonix.data.local.dao
-
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert

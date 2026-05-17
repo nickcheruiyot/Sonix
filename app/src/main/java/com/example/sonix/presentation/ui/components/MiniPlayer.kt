@@ -112,7 +112,7 @@ fun MiniPlayer(
 
             Spacer(Modifier.width(10.dp))
 
-            // Song info — marquee scrolls long titles
+            // Song info scrolls long titles
             Column(
                 modifier = Modifier.weight(1f)
             ) {
@@ -123,7 +123,7 @@ fun MiniPlayer(
                     maxLines = 1,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .basicMarquee()      // ← scrolls long titles
+                        .basicMarquee()      // scrolls long titles
                 )
                 Spacer(Modifier.height(1.dp))
                 Text(
@@ -133,7 +133,7 @@ fun MiniPlayer(
                     maxLines = 1,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .basicMarquee()      // ← scrolls long artist names
+                        .basicMarquee()      //  scrolls long artist names
                 )
             }
 

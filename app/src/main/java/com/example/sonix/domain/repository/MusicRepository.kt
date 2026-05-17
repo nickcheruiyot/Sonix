@@ -1,7 +1,6 @@
 package com.example.sonix.domain.repository
 import com.example.sonix.data.model.Song
 import kotlinx.coroutines.flow.Flow
-
 interface MusicRepository {
     fun getAllSongs(): Flow<List<Song>>
     fun searchSongs(query: String): Flow<List<Song>>

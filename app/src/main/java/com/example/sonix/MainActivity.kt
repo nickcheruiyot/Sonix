@@ -20,7 +20,6 @@ import com.example.sonix.presentation.ui.screens.PlayerScreen
 import com.example.sonix.presentation.ui.theme.SonixTheme
 import com.example.sonix.presentation.viewmodel.MusicViewModel
 import kotlinx.coroutines.launch
-
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MusicViewModel by viewModels { MusicViewModel.Factory(this) }

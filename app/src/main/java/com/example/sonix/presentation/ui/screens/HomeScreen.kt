@@ -70,7 +70,6 @@ import com.example.sonix.presentation.ui.theme.White30
 import com.example.sonix.presentation.ui.theme.White60
 import com.example.sonix.presentation.viewmodel.MusicViewModel
 import kotlinx.coroutines.launch
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
@@ -132,7 +131,7 @@ fun HomeScreen(
         ) {
             Spacer(Modifier.height(16.dp))
 
-            // ── Header ────────────────────────────────────────────────
+            // Header
             Text(
                 text = "Sonix",
                 style = MaterialTheme.typography.displayLarge,
@@ -142,7 +141,7 @@ fun HomeScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Search with X button ──────────────────────────────────
+            // Search with X button
             OutlinedTextField(
                 value = state.searchQuery,
                 onValueChange = viewModel::onSearchQueryChange,
@@ -180,7 +179,7 @@ fun HomeScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Tabs ──────────────────────────────────────────────────
+            //  Tabs
             TabRow(
                 selectedTabIndex = pagerState.currentPage,
                 containerColor = Black100,
@@ -216,7 +215,7 @@ fun HomeScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            // ── Swipeable pager ───────────────────────────────────────
+            // Swipeable pager
             if (state.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -329,7 +328,7 @@ fun HomeScreen(
                             }
                         }
 
-                        // ── Artists ───────────────────────────────────
+                        //  Artists
                         HomeTab.ARTISTS -> {
                             Column(modifier = Modifier.fillMaxSize()) {
                                 Row(
@@ -373,7 +372,7 @@ fun HomeScreen(
                             }
                         }
 
-                        // ── Albums ────────────────────────────────────
+                        // Albums
                         HomeTab.ALBUMS -> {
                             Column(modifier = Modifier.fillMaxSize()) {
                                 Row(
