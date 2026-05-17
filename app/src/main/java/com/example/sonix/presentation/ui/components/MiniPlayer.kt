@@ -1,5 +1,6 @@
 package com.example.sonix.presentation.ui.components
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,13 +24,17 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
 import com.example.sonix.data.model.Song
 import com.example.sonix.presentation.ui.theme.Black20
 import com.example.sonix.presentation.ui.theme.Black40
@@ -49,6 +54,8 @@ fun MiniPlayer(
     onExpand: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var imageLoadFailed by remember(song.id) { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -56,7 +63,7 @@ fun MiniPlayer(
             .background(Black60)
             .clickable(onClick = onExpand)
     ) {
-        // Thin progress bar at very top
+        // Thin progress bar at top
         LinearProgressIndicator(
             progress = { progress },
             modifier = Modifier
@@ -69,7 +76,7 @@ fun MiniPlayer(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Album art
@@ -77,63 +84,83 @@ fun MiniPlayer(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Black40)
+                    .background(Black40),
+                contentAlignment = Alignment.Center
             ) {
-                AsyncImage(
-                    model = song.albumArtUri,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
+                if (!imageLoadFailed) {
+                    AsyncImage(
+                        model = song.albumArtUri,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                        onState = { state ->
+                            if (state is AsyncImagePainter.State.Error) {
+                                imageLoadFailed = true
+                            }
+                        }
+                    )
+                }
+                if (imageLoadFailed || song.albumArtUri == null) {
+                    Icon(
+                        imageVector = Icons.Rounded.SkipPrevious,
+                        contentDescription = null,
+                        tint = Lime,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(10.dp))
 
-            // Song info
-            Column(Modifier.weight(1f)) {
+            // Song info — marquee scrolls long titles
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
                     text = song.title,
                     style = MaterialTheme.typography.titleMedium,
                     color = White100,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .basicMarquee()      // ← scrolls long titles
                 )
+                Spacer(Modifier.height(1.dp))
                 Text(
                     text = song.artist,
                     style = MaterialTheme.typography.bodyMedium,
                     color = White60,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .basicMarquee()      // ← scrolls long artist names
                 )
             }
 
-            // Previous
+            // Controls
             IconButton(onClick = onSkipPrevious) {
                 Icon(
-                    imageVector = Icons.Rounded.SkipPrevious,
+                    Icons.Rounded.SkipPrevious,
                     contentDescription = "Previous",
                     tint = White100,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
-
-            // Play / Pause
             IconButton(onClick = onPlayPause) {
                 Icon(
-                    imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    imageVector = if (isPlaying) Icons.Rounded.Pause
+                    else Icons.Rounded.PlayArrow,
                     contentDescription = if (isPlaying) "Pause" else "Play",
                     tint = White100,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
-
-            // Next
             IconButton(onClick = onSkipNext) {
                 Icon(
-                    imageVector = Icons.Rounded.SkipNext,
+                    Icons.Rounded.SkipNext,
                     contentDescription = "Next",
                     tint = White100,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
         }

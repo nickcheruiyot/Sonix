@@ -2,19 +2,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- ── Audio permission (Android 13+) ──────────────────────────── -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-
-    <!-- ── Audio permission (Android 12 and below) ─────────────────── -->
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-
-    <!-- ── Needed for MediaSessionService foreground playback ───────── -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.MANAGE_MEDIA" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-
-    <!-- ── Needed to post Now Playing notification (Android 13+) ────── -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
@@ -29,11 +26,11 @@
         android:theme="@style/Theme.Sonix"
         tools:targetApi="31">
 
-        <!-- ── Main Activity ─────────────────────────────────────────── -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Sonix"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -42,7 +39,6 @@
             </intent-filter>
         </activity>
 
-        <!-- ── Music Playback Service ────────────────────────────────── -->
         <service
             android:name=".service.MusicService"
             android:exported="true"
@@ -51,6 +47,16 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

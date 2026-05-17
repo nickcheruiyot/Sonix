@@ -1,4 +1,5 @@
 package com.example.sonix.data.local.dao
+
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
@@ -28,6 +29,9 @@ interface SongDao {
 
     @Query("SELECT * FROM songs WHERE album = :album")
     fun getSongsByAlbum(album: String): Flow<List<SongEntity>>
+
+    @Query("DELETE FROM songs WHERE id = :id")
+    suspend fun deleteSongById(id: Long)
 
     @Query("DELETE FROM songs")
     suspend fun clearAll()

@@ -1,6 +1,9 @@
 package com.example.sonix.presentation.viewmodel
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -9,12 +12,17 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.example.sonix.data.model.Song
+import com.example.sonix.domain.repository.DeleteResult
+import com.example.sonix.domain.usecase.DeleteSongUseCase
 import com.example.sonix.domain.usecase.GetAllSongsUseCase
 import com.example.sonix.domain.usecase.SearchSongsUseCase
 import com.example.sonix.domain.usecase.SyncMusicUseCase
+import com.example.sonix.presentation.state.Album
+import com.example.sonix.presentation.state.Artist
 import com.example.sonix.presentation.state.HomeTab
 import com.example.sonix.presentation.state.MusicUiState
 import com.example.sonix.presentation.state.RepeatMode
+import com.example.sonix.presentation.state.SortOrder
 import com.example.sonix.service.MusicService
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
@@ -25,11 +33,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 
 class MusicViewModel(
     private val getAllSongsUseCase: GetAllSongsUseCase,
     private val searchSongsUseCase: SearchSongsUseCase,
     private val syncMusicUseCase: SyncMusicUseCase,
+    private val deleteSongUseCase: DeleteSongUseCase,
     private val context: Context
 ) : ViewModel() {
 
@@ -44,7 +54,6 @@ class MusicViewModel(
 
     init {
         initMediaController()
-        // Load whatever is already in the DB immediately (handles relaunch case)
         loadSongsFromDb()
     }
 
@@ -65,7 +74,6 @@ class MusicViewModel(
             _uiState.update { it.copy(isPlaying = isPlaying) }
             if (isPlaying) startProgressTracking() else progressJob?.cancel()
         }
-
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val index = controller?.currentMediaItemIndex ?: return
             if (index in playlist.indices) {
@@ -74,32 +82,58 @@ class MusicViewModel(
         }
     }
 
-    // Called on first launch after permission is granted
     fun syncAfterPermission() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                syncMusicUseCase()   // writes songs from MediaStore into Room
+                syncMusicUseCase()
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = "Could not read music library", isLoading = false) }
+                _uiState.update {
+                    it.copy(error = "Could not read music library", isLoading = false)
+                }
             }
-            // loadSongsFromDb() is already collecting — Room Flow will emit automatically
-            // after upsert, so we just clear the loading flag
             _uiState.update { it.copy(isLoading = false) }
         }
     }
 
-    // Collects the Room Flow — stays active for the lifetime of the ViewModel
     private fun loadSongsFromDb() {
         if (songsJobStarted) return
         songsJobStarted = true
         viewModelScope.launch {
             getAllSongsUseCase().collect { songs ->
-                playlist = songs
+                val sorted = applySortOrder(songs, _uiState.value.sortOrder)
+                playlist = sorted
+                // Build albums
+                val albums = songs
+                    .groupBy { it.album }
+                    .map { (albumName, albumSongs) ->
+                        Album(
+                            name = albumName,
+                            artist = albumSongs.first().artist,
+                            songCount = albumSongs.size,
+                            albumArtUri = albumSongs.first().albumArtUri,
+                            songs = albumSongs
+                        )
+                    }
+                    .sortedBy { it.name.lowercase() }
+                // Build artists
+                val artists = songs
+                    .groupBy { it.artist }
+                    .map { (artistName, artistSongs) ->
+                        Artist(
+                            name = artistName,
+                            songCount = artistSongs.size,
+                            albumArtUri = artistSongs.first().albumArtUri,
+                            songs = artistSongs
+                        )
+                    }
+                    .sortedBy { it.name.lowercase() }
                 _uiState.update {
                     it.copy(
                         allSongs = songs,
-                        filteredSongs = songs,
+                        filteredSongs = sorted,
+                        albums = albums,
+                        artists = artists,
                         isLoading = false
                     )
                 }
@@ -119,10 +153,34 @@ class MusicViewModel(
         startProgressTracking()
     }
 
-    fun togglePlayPause() {
-        controller?.let {
-            if (it.isPlaying) it.pause() else it.play()
+    fun playAlbum(album: Album) {
+        if (album.songs.isEmpty()) return
+        val newPlaylist = album.songs
+        playlist = newPlaylist
+        controller?.apply {
+            setMediaItems(newPlaylist.map { MediaItem.fromUri(it.uri) }, 0, 0L)
+            prepare()
+            play()
         }
+        _uiState.update { it.copy(currentSong = newPlaylist.first(), isPlaying = true) }
+        startProgressTracking()
+    }
+
+    fun playArtist(artist: Artist) {
+        if (artist.songs.isEmpty()) return
+        val newPlaylist = artist.songs
+        playlist = newPlaylist
+        controller?.apply {
+            setMediaItems(newPlaylist.map { MediaItem.fromUri(it.uri) }, 0, 0L)
+            prepare()
+            play()
+        }
+        _uiState.update { it.copy(currentSong = newPlaylist.first(), isPlaying = true) }
+        startProgressTracking()
+    }
+
+    fun togglePlayPause() {
+        controller?.let { if (it.isPlaying) it.pause() else it.play() }
     }
 
     fun skipNext() { controller?.seekToNextMediaItem() }
@@ -163,17 +221,103 @@ class MusicViewModel(
         _uiState.update { it.copy(searchQuery = query) }
         viewModelScope.launch {
             if (query.isBlank()) {
-                _uiState.update { it.copy(filteredSongs = playlist) }
+                val sorted = applySortOrder(
+                    _uiState.value.allSongs, _uiState.value.sortOrder
+                )
+                _uiState.update { it.copy(filteredSongs = sorted) }
             } else {
                 searchSongsUseCase(query).collect { results ->
-                    _uiState.update { it.copy(filteredSongs = results) }
+                    val sorted = applySortOrder(results, _uiState.value.sortOrder)
+                    _uiState.update { it.copy(filteredSongs = sorted) }
                 }
             }
         }
     }
 
+    fun onSortOrderChange(order: SortOrder) {
+        val sorted = applySortOrder(_uiState.value.allSongs, order)
+        playlist = sorted
+        _uiState.update { it.copy(sortOrder = order, filteredSongs = sorted) }
+    }
+
     fun onTabSelected(tab: HomeTab) {
         _uiState.update { it.copy(selectedTab = tab) }
+    }
+
+    fun deleteSong(song: Song) {
+        viewModelScope.launch {
+            if (_uiState.value.currentSong?.id == song.id) {
+                controller?.stop()
+                _uiState.update { it.copy(currentSong = null, isPlaying = false) }
+            }
+            when (val result = deleteSongUseCase(song)) {
+                is DeleteResult.Success -> { }
+                is DeleteResult.RequiresPermission -> {
+                    _uiState.update {
+                        it.copy(
+                            pendingDeleteIntent = result.pendingIntent,
+                            pendingDeleteSong = result.song
+                        )
+                    }
+                }
+                is DeleteResult.Failure -> {
+                    _uiState.update {
+                        it.copy(error = "Could not delete \"${song.title}\"")
+                    }
+                }
+            }
+        }
+    }
+
+    fun retryPendingDelete() {
+        val song = _uiState.value.pendingDeleteSong ?: return
+        _uiState.update { it.copy(pendingDeleteIntent = null, pendingDeleteSong = null) }
+        deleteSong(song)
+    }
+
+    fun clearPendingDelete() {
+        _uiState.update { it.copy(pendingDeleteIntent = null, pendingDeleteSong = null) }
+    }
+
+    fun shareSong(song: Song) {
+        try {
+            val file = File(song.uri)
+            val uri: Uri = if (file.exists()) {
+                FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.provider",
+                    file
+                )
+            } else {
+                android.content.ContentUris.withAppendedId(
+                    android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    song.id
+                )
+            }
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "audio/*"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, song.title)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(
+                Intent.createChooser(intent, "Share ${song.title}").apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
+        } catch (e: Exception) {
+            _uiState.update { it.copy(error = "Could not share \"${song.title}\"") }
+        }
+    }
+
+    private fun applySortOrder(songs: List<Song>, order: SortOrder): List<Song> {
+        return when (order) {
+            SortOrder.A_TO_Z            -> songs.sortedBy { it.title.lowercase() }
+            SortOrder.Z_TO_A            -> songs.sortedByDescending { it.title.lowercase() }
+            SortOrder.DATE_ADDED_NEWEST -> songs.sortedByDescending { it.dateAdded }
+            SortOrder.DATE_ADDED_OLDEST -> songs.sortedBy { it.dateAdded }
+        }
     }
 
     private fun startProgressTracking() {
@@ -201,13 +345,14 @@ class MusicViewModel(
             val db = com.example.sonix.data.local.SonixDatabase.getInstance(appContext)
             val mediaStoreHelper = com.example.sonix.util.MediaStoreHelper(appContext)
             val repo = com.example.sonix.data.repository.MusicRepositoryImpl(
-                db.songDao(), mediaStoreHelper
+                db.songDao(), mediaStoreHelper, appContext
             )
             @Suppress("UNCHECKED_CAST")
             return MusicViewModel(
                 GetAllSongsUseCase(repo),
                 SearchSongsUseCase(repo),
                 SyncMusicUseCase(repo),
+                DeleteSongUseCase(repo),
                 appContext
             ) as T
         }
