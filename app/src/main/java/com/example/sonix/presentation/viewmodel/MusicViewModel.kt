@@ -51,6 +51,8 @@ class MusicViewModel(
     private var progressJob: Job? = null
     private var playlist: List<Song> = emptyList()
     private var songsJobStarted = false
+    private var pendingRestoreIndex: Int = -1
+    private var pendingRestoreIsPlaying: Boolean = false
 
     init {
         initMediaController()
@@ -64,9 +66,31 @@ class MusicViewModel(
         )
         controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
         controllerFuture?.addListener({
-            controller = controllerFuture?.get()
-            controller?.addListener(playerListener)
+            val ctrl = controllerFuture?.get() ?: return@addListener
+            controller = ctrl
+            ctrl.addListener(playerListener)
+            restorePlaybackState(ctrl)
         }, MoreExecutors.directExecutor())
+    }
+
+    private fun restorePlaybackState(ctrl: MediaController) {
+        val index = ctrl.currentMediaItemIndex
+        val isPlaying = ctrl.isPlaying || ctrl.playWhenReady
+
+        if (playlist.isNotEmpty() && index in playlist.indices) {
+            val song = playlist[index]
+            _uiState.update {
+                it.copy(
+                    currentSong = song,
+                    isPlaying = isPlaying,
+                    duration = ctrl.duration.coerceAtLeast(0L)
+                )
+            }
+            if (isPlaying) startProgressTracking()
+        } else {
+            pendingRestoreIndex = index
+            pendingRestoreIsPlaying = isPlaying
+        }
     }
 
     private val playerListener = object : Player.Listener {
@@ -74,6 +98,14 @@ class MusicViewModel(
             _uiState.update { it.copy(isPlaying = isPlaying) }
             if (isPlaying) startProgressTracking() else progressJob?.cancel()
         }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            // Keep uiState in sync when player reaches end or buffers
+            _uiState.update {
+                it.copy(isPlaying = controller?.isPlaying == true)
+            }
+        }
+
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val index = controller?.currentMediaItemIndex ?: return
             if (index in playlist.indices) {
@@ -103,31 +135,21 @@ class MusicViewModel(
             getAllSongsUseCase().collect { songs ->
                 val sorted = applySortOrder(songs, _uiState.value.sortOrder)
                 playlist = sorted
-                // Build albums
+
                 val albums = songs
                     .groupBy { it.album }
-                    .map { (albumName, albumSongs) ->
-                        Album(
-                            name = albumName,
-                            artist = albumSongs.first().artist,
-                            songCount = albumSongs.size,
-                            albumArtUri = albumSongs.first().albumArtUri,
-                            songs = albumSongs
-                        )
+                    .map { (name, s) ->
+                        Album(name, s.first().artist, s.size, s.first().albumArtUri, s)
                     }
                     .sortedBy { it.name.lowercase() }
-                // Build artists
+
                 val artists = songs
                     .groupBy { it.artist }
-                    .map { (artistName, artistSongs) ->
-                        Artist(
-                            name = artistName,
-                            songCount = artistSongs.size,
-                            albumArtUri = artistSongs.first().albumArtUri,
-                            songs = artistSongs
-                        )
+                    .map { (name, s) ->
+                        Artist(name, s.size, s.first().albumArtUri, s)
                     }
                     .sortedBy { it.name.lowercase() }
+
                 _uiState.update {
                     it.copy(
                         allSongs = songs,
@@ -136,6 +158,21 @@ class MusicViewModel(
                         artists = artists,
                         isLoading = false
                     )
+                }
+
+                if (pendingRestoreIndex >= 0 &&
+                    pendingRestoreIndex in playlist.indices
+                ) {
+                    val song = playlist[pendingRestoreIndex]
+                    _uiState.update {
+                        it.copy(
+                            currentSong = song,
+                            isPlaying = pendingRestoreIsPlaying
+                        )
+                    }
+                    if (pendingRestoreIsPlaying) startProgressTracking()
+                    pendingRestoreIndex = -1
+                    pendingRestoreIsPlaying = false
                 }
             }
         }
@@ -155,32 +192,52 @@ class MusicViewModel(
 
     fun playAlbum(album: Album) {
         if (album.songs.isEmpty()) return
-        val newPlaylist = album.songs
-        playlist = newPlaylist
+        playlist = album.songs
         controller?.apply {
-            setMediaItems(newPlaylist.map { MediaItem.fromUri(it.uri) }, 0, 0L)
+            setMediaItems(album.songs.map { MediaItem.fromUri(it.uri) }, 0, 0L)
             prepare()
             play()
         }
-        _uiState.update { it.copy(currentSong = newPlaylist.first(), isPlaying = true) }
+        _uiState.update { it.copy(currentSong = album.songs.first(), isPlaying = true) }
         startProgressTracking()
     }
 
     fun playArtist(artist: Artist) {
         if (artist.songs.isEmpty()) return
-        val newPlaylist = artist.songs
-        playlist = newPlaylist
+        playlist = artist.songs
         controller?.apply {
-            setMediaItems(newPlaylist.map { MediaItem.fromUri(it.uri) }, 0, 0L)
+            setMediaItems(artist.songs.map { MediaItem.fromUri(it.uri) }, 0, 0L)
             prepare()
             play()
         }
-        _uiState.update { it.copy(currentSong = newPlaylist.first(), isPlaying = true) }
+        _uiState.update { it.copy(currentSong = artist.songs.first(), isPlaying = true) }
         startProgressTracking()
     }
 
     fun togglePlayPause() {
-        controller?.let { if (it.isPlaying) it.pause() else it.play() }
+        val ctrl = controller ?: return
+        if (ctrl.isPlaying) {
+            ctrl.pause()
+        } else {
+            // If controller has media items ready — just play
+            if (ctrl.mediaItemCount > 0) {
+                ctrl.play()
+            } else {
+                val current = _uiState.value.currentSong
+                if (current != null && playlist.isNotEmpty()) {
+                    val index = playlist.indexOfFirst { it.id == current.id }
+                    val resumeIndex = if (index >= 0) index else 0
+                    val position = ctrl.currentPosition.coerceAtLeast(0L)
+                    ctrl.setMediaItems(
+                        playlist.map { MediaItem.fromUri(it.uri) },
+                        resumeIndex,
+                        position
+                    )
+                    ctrl.prepare()
+                    ctrl.play()
+                }
+            }
+        }
     }
 
     fun skipNext() { controller?.seekToNextMediaItem() }
@@ -251,7 +308,7 @@ class MusicViewModel(
                 _uiState.update { it.copy(currentSong = null, isPlaying = false) }
             }
             when (val result = deleteSongUseCase(song)) {
-                is DeleteResult.Success -> { }
+                is DeleteResult.Success -> {}
                 is DeleteResult.RequiresPermission -> {
                     _uiState.update {
                         it.copy(
@@ -311,14 +368,13 @@ class MusicViewModel(
         }
     }
 
-    private fun applySortOrder(songs: List<Song>, order: SortOrder): List<Song> {
-        return when (order) {
+    private fun applySortOrder(songs: List<Song>, order: SortOrder): List<Song> =
+        when (order) {
             SortOrder.A_TO_Z            -> songs.sortedBy { it.title.lowercase() }
             SortOrder.Z_TO_A            -> songs.sortedByDescending { it.title.lowercase() }
             SortOrder.DATE_ADDED_NEWEST -> songs.sortedByDescending { it.dateAdded }
             SortOrder.DATE_ADDED_OLDEST -> songs.sortedBy { it.dateAdded }
         }
-    }
 
     private fun startProgressTracking() {
         progressJob?.cancel()

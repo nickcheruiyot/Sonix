@@ -1,7 +1,6 @@
 package com.example.sonix.data.mapper
 import com.example.sonix.data.local.entity.SongEntity
 import com.example.sonix.data.model.Song
-
 object SongMapper {
 
     fun SongEntity.toDomain(): Song = Song(

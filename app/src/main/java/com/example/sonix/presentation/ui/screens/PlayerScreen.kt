@@ -25,7 +25,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBackIos
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -71,6 +70,7 @@ import com.example.sonix.presentation.ui.theme.White30
 import com.example.sonix.presentation.ui.theme.White60
 import com.example.sonix.presentation.viewmodel.MusicViewModel
 import com.example.sonix.util.toFormattedDuration
+
 @Composable
 fun PlayerScreen(
     viewModel: MusicViewModel,
@@ -79,26 +79,28 @@ fun PlayerScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val song = state.currentSong ?: return
 
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val infiniteTransition = rememberInfiniteTransition(label = "anim")
 
+    // Breathing glow
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.20f,
-        targetValue = 0.55f,
+        initialValue = 0.15f,
+        targetValue = 0.50f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = LinearEasing),
+            animation = tween(1800, easing = LinearEasing),
             repeatMode = ComposeRepeatMode.Reverse
         ),
-        label = "pulseAlpha"
+        label = "pulse"
     )
 
-    val arcAngle by infiniteTransition.animateFloat(
+    // Rotating dashed ring offset
+    val ringRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = LinearEasing),
+            animation = tween(8000, easing = LinearEasing),
             repeatMode = ComposeRepeatMode.Restart
         ),
-        label = "arcAngle"
+        label = "ring"
     )
 
     val progress = if (state.duration > 0)
@@ -118,29 +120,22 @@ fun PlayerScreen(
                 .fillMaxSize()
                 .blur(70.dp)
         )
-        // Dark scrim
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Black100.copy(alpha = 0.84f))
+                .background(Black100.copy(alpha = 0.86f))
         )
-        // Top lime wash
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(240.dp)
+                .height(220.dp)
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(
-                            LimeDim.copy(alpha = 0.09f),
-                            Color.Transparent
-                        )
+                        colors = listOf(LimeDim.copy(alpha = 0.08f), Color.Transparent)
                     )
                 )
         )
 
-        // Main content — statusBarsPadding at top, navigationBarsPadding
-        // at bottom so nothing overlaps system bars on either end
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -151,12 +146,8 @@ fun PlayerScreen(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
 
-            //  TOP SECTION
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-
                 Spacer(Modifier.height(8.dp))
-
-                // Top bar
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -192,117 +183,136 @@ fun PlayerScreen(
                 }
             }
 
-            //  MIDDLE SECTION — headphone + song info
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-
-                // Stylish headphone artwork
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(210.dp)
+                    modifier = Modifier.size(230.dp)
                 ) {
-                    // Spinning arc ring — only when playing
-                    if (state.isPlaying) {
-                        Box(
-                            modifier = Modifier
-                                .size(210.dp)
-                                .drawBehind {
-                                    val r = size.minDimension / 2f
-                                    drawCircle(
-                                        color = Lime.copy(alpha = 0.12f),
-                                        radius = r,
-                                        style = Stroke(width = 2.dp.toPx())
-                                    )
-                                    drawArc(
-                                        brush = Brush.sweepGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                Lime.copy(alpha = 0.5f),
-                                                Lime,
-                                                Lime.copy(alpha = 0.5f),
-                                                Color.Transparent
-                                            ),
-                                            center = Offset(r, r)
-                                        ),
-                                        startAngle = arcAngle,
-                                        sweepAngle = 120f,
-                                        useCenter = false,
-                                        style = Stroke(width = 2.dp.toPx())
-                                    )
-                                }
-                        )
-                    }
-
-                    // Outer glow
+                    // Outermost soft glow halo
                     Box(
                         modifier = Modifier
-                            .size(188.dp)
+                            .size(230.dp)
                             .shadow(
-                                elevation = if (state.isPlaying) 36.dp else 12.dp,
+                                elevation = if (state.isPlaying) 56.dp else 16.dp,
                                 shape = CircleShape,
                                 ambientColor = Lime.copy(
-                                    alpha = if (state.isPlaying) pulseAlpha else 0.08f
+                                    alpha = if (state.isPlaying) pulseAlpha * 0.6f
+                                    else 0.04f
                                 ),
                                 spotColor = Lime.copy(
-                                    alpha = if (state.isPlaying) pulseAlpha else 0.08f
+                                    alpha = if (state.isPlaying) pulseAlpha
+                                    else 0.04f
                                 )
                             )
                             .clip(CircleShape)
                             .background(Color.Transparent)
                     )
 
-                    // Frosted glass circle
+                    // Rotating dashed outer ring — visible only when playing
+                    if (state.isPlaying) {
+                        Box(
+                            modifier = Modifier
+                                .size(218.dp)
+                                .drawBehind {
+                                    val r = size.minDimension / 2f
+                                    val dashCount = 24
+                                    val dashAngle = 360f / dashCount
+                                    for (i in 0 until dashCount) {
+                                        val startAngle = ringRotation + i * dashAngle
+                                        val alpha = if (i % 2 == 0) 0.55f else 0.15f
+                                        drawArc(
+                                            color = Lime.copy(alpha = alpha),
+                                            startAngle = startAngle,
+                                            sweepAngle = dashAngle * 0.55f,
+                                            useCenter = false,
+                                            style = Stroke(width = 1.5.dp.toPx()),
+                                            topLeft = Offset(
+                                                center.x - r,
+                                                center.y - r
+                                            ),
+                                            size = androidx.compose.ui.geometry.Size(
+                                                r * 2, r * 2
+                                            )
+                                        )
+                                    }
+                                }
+                        )
+                    }
+
+                    // Static thin ring border
                     Box(
                         modifier = Modifier
-                            .size(178.dp)
+                            .size(200.dp)
+                            .drawBehind {
+                                drawCircle(
+                                    color = Lime.copy(
+                                        alpha = if (state.isPlaying) 0.35f else 0.12f
+                                    ),
+                                    radius = size.minDimension / 2f,
+                                    style = Stroke(width = 1.dp.toPx())
+                                )
+                            }
+                            .clip(CircleShape)
+                            .background(Color.Transparent)
+                    )
+
+                    // Main frosted glass disc
+                    Box(
+                        modifier = Modifier
+                            .size(192.dp)
                             .clip(CircleShape)
                             .background(
                                 Brush.radialGradient(
                                     colors = listOf(
-                                        Black60.copy(alpha = 0.95f),
-                                        Black40.copy(alpha = 0.98f)
-                                    )
+                                        // Centre brighter when playing
+                                        if (state.isPlaying)
+                                            Black60.copy(alpha = 0.80f)
+                                        else
+                                            Black60.copy(alpha = 0.95f),
+                                        Black40.copy(alpha = 0.97f),
+                                        Black100.copy(alpha = 0.85f)
+                                    ),
+                                    radius = 300f
                                 )
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Inner ring detail
-                        Box(
-                            modifier = Modifier
-                                .size(158.dp)
-                                .drawBehind {
-                                    drawCircle(
-                                        color = Lime.copy(alpha = 0.06f),
-                                        radius = size.minDimension / 2f,
-                                        style = Stroke(width = 1.dp.toPx())
+                        // Lime tinted inner glow circle behind icon
+                        if (state.isPlaying) {
+                            Box(
+                                modifier = Modifier
+                                    .size(130.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        Brush.radialGradient(
+                                            colors = listOf(
+                                                Lime.copy(alpha = pulseAlpha * 0.18f),
+                                                Color.Transparent
+                                            )
+                                        )
                                     )
-                                }
-                        )
+                            )
+                        }
+
+                        // Headphone icon
                         Icon(
                             imageVector = Icons.Rounded.Headphones,
                             contentDescription = null,
-                            tint = Lime,
-                            modifier = Modifier.size(88.dp)
+                            tint = if (state.isPlaying)
+                                Lime
+                            else
+                                Lime.copy(alpha = 0.40f),
+                            modifier = Modifier.size(92.dp)
                         )
-                        if (state.isPlaying) {
-                            Icon(
-                                imageVector = Icons.Rounded.GraphicEq,
-                                contentDescription = null,
-                                tint = Lime.copy(alpha = 0.5f),
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .align(Alignment.BottomCenter)
-                                    .offset(y = (-16).dp)
-                            )
-                        }
                     }
                 }
 
-                Spacer(Modifier.height(28.dp))
+                Spacer(Modifier.height(20.dp))
 
-                // Song title — marquee scrolls if too long
+                // Song title
                 Text(
                     text = song.title,
                     style = MaterialTheme.typography.titleLarge.copy(
@@ -315,7 +325,7 @@ fun PlayerScreen(
                         .fillMaxWidth()
                         .basicMarquee()
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(
                     text = song.artist,
                     style = MaterialTheme.typography.bodyMedium,
@@ -327,91 +337,86 @@ fun PlayerScreen(
                 )
             }
 
-            // ── BOTTOM SECTION — seekbar + controls ───────────────────
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Seek bar
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    BoxWithConstraints(
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val thumbR = 5.dp
+                    val thumbOffset = (maxWidth - thumbR * 2) *
+                            progress.coerceIn(0f, 1f)
+
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(36.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val thumbR = 5.dp
-                        val thumbOffset = (maxWidth - thumbR * 2) *
-                                progress.coerceIn(0f, 1f)
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(2.dp)
-                                .clip(RoundedCornerShape(1.dp))
-                                .background(Black20)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(progress.coerceIn(0f, 1f))
-                                .height(2.dp)
-                                .clip(RoundedCornerShape(1.dp))
-                                .align(Alignment.CenterStart)
-                                .background(
-                                    Brush.horizontalGradient(
-                                        colors = listOf(LimeDim, Lime)
-                                    )
+                            .height(2.dp)
+                            .clip(RoundedCornerShape(1.dp))
+                            .background(Black20)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progress.coerceIn(0f, 1f))
+                            .height(2.dp)
+                            .clip(RoundedCornerShape(1.dp))
+                            .align(Alignment.CenterStart)
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(LimeDim, Lime)
                                 )
-                        )
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .offset(x = thumbOffset)
-                                .size(thumbR * 2)
-                                .shadow(6.dp, CircleShape, spotColor = Lime)
-                                .clip(CircleShape)
-                                .background(Lime)
-                        )
-                        Slider(
-                            value = progress,
-                            onValueChange = {
-                                viewModel.seekTo((it * state.duration).toLong())
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = SliderDefaults.colors(
-                                thumbColor = Color.Transparent,
-                                activeTrackColor = Color.Transparent,
-                                inactiveTrackColor = Color.Transparent,
-                                activeTickColor = Color.Transparent,
-                                inactiveTickColor = Color.Transparent
                             )
-                        )
-                    }
-
-                    Spacer(Modifier.height(4.dp))
-
-                    Row(
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .offset(x = thumbOffset)
+                            .size(thumbR * 2)
+                            .shadow(6.dp, CircleShape, spotColor = Lime)
+                            .clip(CircleShape)
+                            .background(Lime)
+                    )
+                    Slider(
+                        value = progress,
+                        onValueChange = {
+                            viewModel.seekTo((it * state.duration).toLong())
+                        },
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = state.currentPosition.toFormattedDuration(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = White60,
-                            fontSize = 11.sp
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color.Transparent,
+                            activeTrackColor = Color.Transparent,
+                            inactiveTrackColor = Color.Transparent,
+                            activeTickColor = Color.Transparent,
+                            inactiveTickColor = Color.Transparent
                         )
-                        Text(
-                            text = state.duration.toFormattedDuration(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = White30,
-                            fontSize = 11.sp
-                        )
-                    }
+                    )
                 }
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(4.dp))
 
-                // Controls
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = state.currentPosition.toFormattedDuration(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = White60,
+                        fontSize = 11.sp
+                    )
+                    Text(
+                        text = state.duration.toFormattedDuration(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = White30,
+                        fontSize = 11.sp
+                    )
+                }
+
+                Spacer(Modifier.height(28.dp))
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
@@ -455,7 +460,9 @@ fun PlayerScreen(
                         ) {
                             Icon(
                                 imageVector = if (state.isPlaying)
-                                    Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                    Icons.Rounded.Pause
+                                else
+                                    Icons.Rounded.PlayArrow,
                                 contentDescription = "Play/Pause",
                                 tint = Black100,
                                 modifier = Modifier.size(34.dp)
@@ -487,7 +494,7 @@ fun PlayerScreen(
                     }
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(36.dp))
             }
         }
     }
