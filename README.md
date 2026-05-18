@@ -2,7 +2,9 @@
 
 Modern Offline Music Player built with Kotlin and Jetpack Compose.
 
-## Features
+---
+
+## ✨ Features
 - Offline music playback
 - Albums section
 - Artists section
@@ -12,27 +14,25 @@ Modern Offline Music Player built with Kotlin and Jetpack Compose.
 - Clean MVVM architecture
 - Jetpack Compose UI
 
-## Screenshots
+---
 
-### Home Screen
-![Home Screen](screenshots/HomeScreen.jpg)
+## 📱 Screenshots
 
-### Playing Screen
-![Playing Screen](screenshots/PlayingScreen.jpg)
+<p align="center">
+  <img src="screenshots/HomeScreen.jpg" width="220"/>
+  <img src="screenshots/PlayingScreen.jpg" width="220"/>
+  <img src="screenshots/PausedPlayerScreen.jpg" width="220"/>
+</p>
 
-### Paused Player Screen
-![Paused Player Screen](screenshots/PausedPlayerScreen.jpg)
+<p align="center">
+  <img src="screenshots/AlbumsScreen.jpg" width="220"/>
+  <img src="screenshots/ArtistsScreen.jpg" width="220"/>
+  <img src="screenshots/SongOrder.jpg" width="220"/>
+</p>
 
-### Albums Screen
-![Albums Screen](screenshots/AlbumsScreen.jpg)
+---
 
-### Artists Screen
-![Artists Screen](screenshots/ArtistsScreen.jpg)
-
-### Song Order
-![Song Order](screenshots/SongOrder.jpg)
-
-## Tech Stack
+## 🛠 Tech Stack
 - Kotlin
 - Jetpack Compose
 - Room Database
@@ -40,11 +40,40 @@ Modern Offline Music Player built with Kotlin and Jetpack Compose.
 - MediaStore API
 - Android Media Player
 
-## Architecture
-Sonix follows Clean MVVM Architecture with:
-- Data Layer
-- Domain Layer
-- Presentation Layer
+---
 
-## Developer
-Developed by Nick Cheruiyot
+## 🧱 Architecture
+Sonix follows Clean MVVM Architecture:
+
+- Data Layer (Database, Repository, Mappers)
+- Domain Layer (Use Cases)
+- Presentation Layer (UI, ViewModel)
+
+---
+
+## 🎧 App Modules
+- Music Service (background playback)
+- Local Database (Room)
+- MediaStore integration
+- Compose UI screens
+
+---
+
+## 👨‍💻 Developer
+Developed by **Nick Cheruiyot**
+
+---
+
+## 🚀 Getting Started
+Clone the project:
+
+```bash
+git clone https://github.com/nickcheruiyot/Sonix.git
+```
+
+Open in Android Studio and run on emulator or device.
+
+---
+
+## ⭐ Support
+If you like this project, consider giving it a star on GitHub!
