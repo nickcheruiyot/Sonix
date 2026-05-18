@@ -1,6 +1,12 @@
-# Sonix 🎵
+<p align="center">
+  <img src="screenshots/home.jpg" width="300"/>
+</p>
 
-Modern offline music player built with Kotlin and Jetpack Compose.
+<h1 align="center">Sonix 🎵</h1>
+
+<p align="center">
+Modern offline music player built with Kotlin and Jetpack Compose
+</p>
 
 ---
 
@@ -16,15 +22,15 @@ Modern offline music player built with Kotlin and Jetpack Compose.
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/home.jpg" width="200"/>
-  <img src="screenshots/playing.jpg" width="200"/>
-  <img src="screenshots/paused.jpg" width="200"/>
+  <img src="screenshots/home.jpg" width="180"/>
+  <img src="screenshots/playing.jpg" width="180"/>
+  <img src="screenshots/paused.jpg" width="180"/>
 </p>
 
 <p align="center">
-  <img src="screenshots/albums.jpg" width="200"/>
-  <img src="screenshots/artists.jpg" width="200"/>
-  <img src="screenshots/song_order.jpg" width="200"/>
+  <img src="screenshots/albums.jpg" width="180"/>
+  <img src="screenshots/artists.jpg" width="180"/>
+  <img src="screenshots/song_order.jpg" width="180"/>
 </p>
 
 ---
